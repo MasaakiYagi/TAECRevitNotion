@@ -11,7 +11,7 @@
 - Notion(Admin権限サイト)
 - Postman
 - Revit2021/Dynamo
-### 事前にこれやっといてください
+### 事前にこれやっておくといいです
 - [Getting Started with NotionAPI](https://www.notion.so/Getting-Started-with-NotionAPI-8dbc03801bf54d23b4ffded7d7981a73)2章まで
 
 ## ☺本題
