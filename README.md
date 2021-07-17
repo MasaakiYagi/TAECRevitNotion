@@ -18,3 +18,6 @@
 ### NotionAPIでNotionにテーブルを作る
 ### Revitの情報をDynamo介してNotionのテーブルに突っ込む
 ### Notionのテーブルで変更した情報をDynamo介してRevitに反映する
+
+## 結言
+### これ何に使えそう？
