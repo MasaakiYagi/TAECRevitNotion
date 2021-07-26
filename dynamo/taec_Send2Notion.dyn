@@ -1,0 +1,213 @@
+{
+  "Uuid": "ab51c4c6-5ddb-4892-85d5-6439cb67881e",
+  "IsCustomNode": false,
+  "Description": null,
+  "Name": "taec_Send2Notion",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "DSRevitNodesUI.ElementsOfFamilyType, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "Id": "41ace2f7aca641fdaef8e063af46b6ed",
+      "Inputs": [
+        {
+          "Id": "f5adf92bbcab43c49d20caf913d026ed",
+          "Name": "Family Type",
+          "Description": "ファミリ タイプ。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "8506f8cbb81c4ee5bc2d820f27816219",
+          "Name": "Elements",
+          "Description": "クエリーに一致する要素のリスト。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "モデルから指定したファミリ タイプのすべての要素を取得します。"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.FamilyTypes, DSRevitNodesUI",
+      "SelectedIndex": 2,
+      "SelectedString": "F1:F1",
+      "NodeType": "ExtensionNode",
+      "Id": "11780f5ab5c84cd18e96d5c0282ba804",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "ab0be0830a3d4489b375f9e52e549c40",
+          "Name": "Family Type",
+          "Description": "選択した Family Type",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "ドキュメントで使用可能なすべてのファミリ タイプ。"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "import clr\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\nfrom Autodesk.Revit.DB.Structure import *\r\n\r\nclr.AddReference('RevitAPIUI')\r\nfrom Autodesk.Revit.UI import *\r\n\r\nclr.AddReference('System')\r\nfrom System.Collections.Generic import List\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuidoc=DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\n# このノードへの入力は、リスト形式で IN 変数に格納されます。\r\nelems = IN[0]\r\n\r\n# この行の下にコードを配置します\r\ndata = []\r\n\r\nfor elem in elems:\r\n\tdict = {\r\n\t\t\"id\":elem.Id,\r\n\t\t\"x\":round(elem.Location.X),\r\n\t\t\"y\":round(elem.Location.Y)\r\n\t}\r\n\tdata.append(dict)\r\n\r\n# 出力を OUT 変数に割り当てます。\r\nOUT = data",
+      "VariableInputPorts": true,
+      "Id": "c2a70123f052486fa8b447440235a356",
+      "Inputs": [
+        {
+          "Id": "fd783835cc2d4842a9fe198e7e782f43",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5b71d2a4567a48cf93723c5771276c40",
+          "Name": "OUT",
+          "Description": "Python スクリプトの結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "埋め込み IronPython スクリプトを実行します。"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "from System.Net import WebRequest\r\nfrom System.Text import ASCIIEncoding\r\nfrom System.IO import StreamReader\r\nfrom System.Net import ServicePointManager\r\nfrom System.Net import SecurityProtocolType\r\nfrom System.Net import WebException\r\nimport time, json\r\n\r\n# Functions\r\ndef http(method, url, data_string=None, header={}, retry=3):\r\n    ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12\r\n    request = WebRequest.Create(url)\r\n    request.UseDefaultCredentials = True\r\n    request.Method = method\r\n    request.ContentLength = 0\r\n    \r\n    for k,v in header.items():\r\n        request.Headers.Add(k,v)\r\n    \r\n    if data_string:\r\n        request.ContentType = \"application/json\"\r\n        encoding = ASCIIEncoding()\r\n        data = encoding.GetBytes(data_string)\r\n        request.ContentLength = data.Length\r\n        stream = request.GetRequestStream()\r\n        stream.Write(data, 0, data.Length)\r\n        stream.Close()\r\n\r\n    try:\r\n        response = request.GetResponse()\r\n        print (response.StatusDescription)\r\n        dataStream = response.GetResponseStream()\r\n        reader = StreamReader(dataStream)\r\n    \r\n        responseFromServer = reader.ReadToEnd()\r\n            \r\n        reader.Close()\r\n        dataStream.Close()\r\n        response.Close()\r\n        return responseFromServer\r\n\r\n    except WebException as e : \r\n        if e.Response.StatusDescription == \"Not Found\" and retry>0:\r\n            time.sleep(10)\r\n            return http(method, url, data_string, header, retry-1)\r\n\r\n        print (e.Response.StatusDescription)\r\n        dataStream = e.Response.GetResponseStream()\r\n        reader = StreamReader(dataStream)\r\n    \r\n        responseFromServer = reader.ReadToEnd()\r\n        print (responseFromServer)\r\n    \r\n        reader.Close()\r\n        dataStream.Close()\r\n\r\n# このノードへの入力は、リスト形式で IN 変数に格納されます。\r\ndicts = IN[0]\r\n\r\n# この行の下にコードを配置します\r\n\r\n# URL\r\nurl = \"https://api.notion.com/v1/pages\"\r\n# Token\r\ntoken = \"Bearer **\"\r\n# headers\r\nheaders = {\r\n            'Authorization': token,\r\n            'Notion-Version': \"2021-05-13\",\r\n            }\r\n\r\nfor dict in dicts:\r\n    values = {\r\n        \"parent\": {\"database_id\": \"**\"},\r\n        \"properties\": {\r\n            \"id\": {\r\n                \"number\":dict[\"id\"]\r\n            },\r\n            \"x\": {\r\n                \"number\":dict[\"x\"]\r\n            },\r\n            \"y\": {\r\n                \"number\":dict[\"y\"]\r\n            },\r\n        }\r\n        }\r\n    # bodyを文字列化\r\n    data = json.dumps(values)\r\n    # POST\r\n    http(\"POST\",url,data,headers)\r\n\r\n# 出力を OUT 変数に割り当てます。\r\nOUT = 0",
+      "VariableInputPorts": true,
+      "Id": "938e442dedc945c99b086c768d8204a3",
+      "Inputs": [
+        {
+          "Id": "04c51b51229045c581d78fcfdf275534",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "728c272becbb42a49bf267eb9d8cb96a",
+          "Name": "OUT",
+          "Description": "Python スクリプトの結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "埋め込み IronPython スクリプトを実行します。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "8506f8cbb81c4ee5bc2d820f27816219",
+      "End": "fd783835cc2d4842a9fe198e7e782f43",
+      "Id": "700213a3e6bc44c4968131be4564ace7"
+    },
+    {
+      "Start": "ab0be0830a3d4489b375f9e52e549c40",
+      "End": "f5adf92bbcab43c49d20caf913d026ed",
+      "Id": "ea4320331b7d4d99b11ddfaf662fe8ff"
+    },
+    {
+      "Start": "5b71d2a4567a48cf93723c5771276c40",
+      "End": "04c51b51229045c581d78fcfdf275534",
+      "Id": "c1803c10bc6341448557f6fd0cb1d391"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.5.0.7460",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景プレビュー",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "NodeViews": [
+      {
+        "ShowGeometry": true,
+        "Name": "All Elements of Family Type",
+        "Id": "41ace2f7aca641fdaef8e063af46b6ed",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 518.5,
+        "Y": 306.0
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Family Types",
+        "Id": "11780f5ab5c84cd18e96d5c0282ba804",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 217.5,
+        "Y": 294.0
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Extract data",
+        "Id": "c2a70123f052486fa8b447440235a356",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 772.0,
+        "Y": 307.0
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Send data to Notion",
+        "Id": "938e442dedc945c99b086c768d8204a3",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 971.6963967132524,
+        "Y": 309.08644986629065
+      }
+    ],
+    "Annotations": [],
+    "X": -426.55612717214763,
+    "Y": -138.77920413168306,
+    "Zoom": 1.2484436539722301
+  }
+}

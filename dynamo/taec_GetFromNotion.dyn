@@ -1,0 +1,267 @@
+{
+  "Uuid": "ab51c4c6-5ddb-4892-85d5-6439cb67881e",
+  "IsCustomNode": false,
+  "Description": null,
+  "Name": "taec_GetFromNotion",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "from System.Net import WebRequest\r\nfrom System.Text import ASCIIEncoding\r\nfrom System.IO import StreamReader\r\nfrom System.Net import ServicePointManager\r\nfrom System.Net import SecurityProtocolType\r\nfrom System.Net import WebException\r\nimport time, json\r\n\r\n# Functions\r\ndef http(method, url, data_string=None, header={}, retry=3):\r\n    ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12\r\n    request = WebRequest.Create(url)\r\n    request.UseDefaultCredentials = True\r\n    request.Method = method\r\n    request.ContentLength = 0\r\n    \r\n    for k,v in header.items():\r\n        request.Headers.Add(k,v)\r\n    \r\n    if data_string:\r\n        request.ContentType = \"application/json\"\r\n        encoding = ASCIIEncoding()\r\n        data = encoding.GetBytes(data_string)\r\n        request.ContentLength = data.Length\r\n        stream = request.GetRequestStream()\r\n        stream.Write(data, 0, data.Length)\r\n        stream.Close()\r\n\r\n    try:\r\n        response = request.GetResponse()\r\n        print (response.StatusDescription)\r\n        dataStream = response.GetResponseStream()\r\n        reader = StreamReader(dataStream)\r\n    \r\n        responseFromServer = reader.ReadToEnd()\r\n            \r\n        reader.Close()\r\n        dataStream.Close()\r\n        response.Close()\r\n        return responseFromServer\r\n\r\n    except WebException as e : \r\n        if e.Response.StatusDescription == \"Not Found\" and retry>0:\r\n            time.sleep(10)\r\n            return http(method, url, data_string, header, retry-1)\r\n\r\n        print (e.Response.StatusDescription)\r\n        dataStream = e.Response.GetResponseStream()\r\n        reader = StreamReader(dataStream)\r\n    \r\n        responseFromServer = reader.ReadToEnd()\r\n        print (responseFromServer)\r\n    \r\n        reader.Close()\r\n        dataStream.Close()\r\n\r\n# この行の下にコードを配置します\r\n# URL\r\ndatabase_id = \"**\"\r\nurl = \"https://api.notion.com/v1/databases/{}/query/\".format(database_id)\r\n# Token\r\ntoken = \"Bearer **\"\r\n# headers\r\nheaders = {\r\n\t\t\t'Authorization': token,\r\n            'Notion-Version': \"2021-05-13\"\r\n\t\t\t}\r\n# body\r\nvalues = {}\r\ndata = json.dumps(values)\r\n\r\n#run webAPI\r\nres = http(\"POST\",url,data,headers)\r\nobjects = json.loads(res)[\"results\"]\r\n\r\n# 出力を OUT 変数に割り当てます。\r\nOUT = res",
+      "VariableInputPorts": true,
+      "Id": "938e442dedc945c99b086c768d8204a3",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "728c272becbb42a49bf267eb9d8cb96a",
+          "Name": "OUT",
+          "Description": "Python スクリプトの結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "埋め込み IronPython スクリプトを実行します。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "61371c572b0748f9af34d95238491dca",
+      "Inputs": [
+        {
+          "Id": "93b4614450e64596b84f4a0eece2d555",
+          "Name": "",
+          "Description": "評価するノード。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "454cbc7d037849b392c62bf6ad4b839e",
+          "Name": "",
+          "Description": "内容を確認します。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "ノードの出力を視覚化します。"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Rhythm.Helpers.System.SendToClipboard@string",
+      "Id": "379e49b29e0b4b4b9abca1f2e5735447",
+      "Inputs": [
+        {
+          "Id": "20a2e8257e234d57b512055de2721e64",
+          "Name": "str",
+          "Description": "string",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "8364069cd7324564a25054e2352722a7",
+          "Name": "void",
+          "Description": "void",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Send the given string to the clipboard\n\nSystem.SendToClipboard (str: string): void"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "import time, json\r\n\r\n# このノードへの入力は、リスト形式で IN 変数に格納されます。\r\nres = IN[0]\r\n\r\n# この行の下にコードを配置します\r\nobjects = json.loads(res)[\"results\"]\r\n\r\ndata = []\r\nfor obj in objects:\r\n\tprops = obj[\"properties\"]\r\n\trecord = {\r\n\t\t\"id\":props[\"id\"][\"number\"],\r\n\t\t\"x\":props[\"x\"][\"number\"],\r\n\t\t\"y\":props[\"y\"][\"number\"]\r\n\t}\r\n\tdata.append(record)\r\n\r\n# 出力を OUT 変数に割り当てます。\r\nOUT = data",
+      "VariableInputPorts": true,
+      "Id": "5b6e76e76dc9448aa4edd889f352ef2b",
+      "Inputs": [
+        {
+          "Id": "c680ad2e1b4946478a5a051fcc406333",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "de9f16012f2c48cdb8c75019f8f98c64",
+          "Name": "OUT",
+          "Description": "Python スクリプトの結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "埋め込み IronPython スクリプトを実行します。"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "import clr\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import*\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nuiapp = DocumentManager.Instance.CurrentUIApplication\r\napp = uiapp.Application\r\n\r\n#input assigned the IN variable\r\ndata = IN[0]\r\n\r\n\r\n#default document set to DocumentManager.Instance.CurrentDBDocument\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n#core data processing\r\ndef update_instance(record):\r\n\t#パラメータセット\r\n\tTransactionManager.Instance.EnsureInTransaction(doc)\r\n\t\r\n\telem = doc.GetElement(ElementId(record[\"id\"]))\r\n\tdxyz = XYZ(\r\n\t\trecord[\"x\"]/304.8-elem.Location.Point[0],\r\n\t\trecord[\"y\"]/304.8-elem.Location.Point[1],\r\n\t\t0\r\n\t)\r\n\tElementTransformUtils.MoveElement(doc,elem.Id,dxyz)\r\n\t\r\n\tTransactionManager.Instance.ForceCloseTransaction()\r\n\t\r\n\treturn elem\r\n\t\r\na = []\r\nfor record in data:\r\n\tb = update_instance(record)\r\n\ta.append(b)\r\n\r\n#output assigned the OUT variable\r\nOUT = a",
+      "VariableInputPorts": true,
+      "Id": "5778c6512965443bb1bab8569cfe2b24",
+      "Inputs": [
+        {
+          "Id": "9fc01a5f6fb14e58bb08e93091877378",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "29946f92387d48408622a0986482a92b",
+          "Name": "OUT",
+          "Description": "Python スクリプトの結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "埋め込み IronPython スクリプトを実行します。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "728c272becbb42a49bf267eb9d8cb96a",
+      "End": "93b4614450e64596b84f4a0eece2d555",
+      "Id": "7f97902d6d434ad2bca74f55ba5ae055"
+    },
+    {
+      "Start": "728c272becbb42a49bf267eb9d8cb96a",
+      "End": "c680ad2e1b4946478a5a051fcc406333",
+      "Id": "a241b2f0c955430b9c9219eea2411c98"
+    },
+    {
+      "Start": "454cbc7d037849b392c62bf6ad4b839e",
+      "End": "20a2e8257e234d57b512055de2721e64",
+      "Id": "55b409f5749c4bdd8924cc8f907ef843"
+    },
+    {
+      "Start": "de9f16012f2c48cdb8c75019f8f98c64",
+      "End": "9fc01a5f6fb14e58bb08e93091877378",
+      "Id": "5e10ba5190754230b24b4fb440866785"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [
+    {
+      "Name": "Rhythm",
+      "Version": "2020.7.25",
+      "ReferenceType": "Package",
+      "Nodes": [
+        "379e49b29e0b4b4b9abca1f2e5735447"
+      ]
+    }
+  ],
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.5.0.7460",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景プレビュー",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "NodeViews": [
+      {
+        "ShowGeometry": true,
+        "Name": "Get data from Notion",
+        "Id": "938e442dedc945c99b086c768d8204a3",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 275.32783408886257,
+        "Y": 329.90283876531635
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Watch",
+        "Id": "61371c572b0748f9af34d95238491dca",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 493.59829249420829,
+        "Y": 151.34800988135979
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "ʳʰʸᵗʰᵐ|System.SendToClipboard",
+        "Id": "379e49b29e0b4b4b9abca1f2e5735447",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": true,
+        "X": 818.23085297653063,
+        "Y": 152.09087615248632
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Extract data from json",
+        "Id": "5b6e76e76dc9448aa4edd889f352ef2b",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 496.34901332568649,
+        "Y": 328.89304868061635
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Update instances by data",
+        "Id": "5778c6512965443bb1bab8569cfe2b24",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 740.62858484343565,
+        "Y": 331.62108738510739
+      }
+    ],
+    "Annotations": [],
+    "X": -218.47616437473539,
+    "Y": -17.456496422059672,
+    "Zoom": 1.2059988786994924
+  }
+}
