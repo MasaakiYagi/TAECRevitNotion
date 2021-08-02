@@ -67,7 +67,7 @@ Postman（APIを簡単に叩くためのツール）を使って，APIによる�
 |Headers|Header|Notion-Version|2021-05-13|  
 |Headers|Header|Content-Type|application/json|  
   - ボディ  
-```json
+```JSON:body.json
 {
     "parent": {
         "type": "page_id",
@@ -103,8 +103,179 @@ Postman（APIを簡単に叩くためのツール）を使って，APIによる�
 ページIDは，ページのURLから確認できます。規則は下記の通りです。  
 https://www.notion.so/[ページ名]-[ページID]
 ```
-### 2 Revitの情報をDynamo介してNotionのテーブルに突っ込む
-### 3 Notionのテーブルで変更した情報をDynamo介してRevitに反映する
+- 成功すればこのように，空白だったページにテーブルオブジェクトが作成されます。  
+![image](https://user-images.githubusercontent.com/6135252/127812584-74e053bf-b9eb-4c5e-8233-b4e8007e703f.png)
+![image](https://user-images.githubusercontent.com/6135252/127812598-065a9fbd-bc1b-4992-bd81-daa6b743e9e7.png)
+- テーブルのIDを控えます（後で使います）
+```
+❕  
+テーブルIDも，テーブルを全画面表示した時のURLから確認できます。規則は下記の通りです。  
+https://www.notion.so/[テーブルID]?v=[何かのパラメータ]
+```
+### 2 Revitの情報をDynamo介してNotionのテーブルに突っ込む  
+レポジトリのテストプロジェクト(taec_testpj.rvt)には，パラメトリックな直方体の一般ファミリ(F1.rfa)のインスタンスが6つ配置されています。  
+上記6つのF1のインスタンスのElementID/x座標/y座標を取得し，Notionのテーブルにレコードとして挿入します。  
+![image](https://user-images.githubusercontent.com/6135252/127825246-6f28cfdc-6906-4bb9-8e9c-394bac73c2ff.png)
+- Dynamo(Send2Notion.dyn)
+![Send2Notion_2021-08-02_05-08-41](https://user-images.githubusercontent.com/6135252/127826897-4b54af3d-7f55-47d2-a25e-90872034993b.png)  
 
-## 結言
+Extract data  
+```Python:Extractdata.py
+import clr
+
+clr.AddReference('RevitAPI')
+from Autodesk.Revit.DB import *
+from Autodesk.Revit.DB.Structure import *
+
+clr.AddReference('RevitAPIUI')
+from Autodesk.Revit.UI import *
+
+clr.AddReference('System')
+from System.Collections.Generic import List
+
+clr.AddReference('RevitNodes')
+import Revit
+clr.ImportExtensions(Revit.GeometryConversion)
+clr.ImportExtensions(Revit.Elements)
+
+clr.AddReference('RevitServices')
+import RevitServices
+from RevitServices.Persistence import DocumentManager
+from RevitServices.Transactions import TransactionManager
+
+doc = DocumentManager.Instance.CurrentDBDocument
+uidoc=DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument
+
+# このノードへの入力は、リスト形式で IN 変数に格納されます。
+elems = IN[0]
+
+# この行の下にコードを配置します
+data = []
+
+for elem in elems:
+	dict = {
+		"id":elem.Id,
+		"x":round(elem.Location.X),
+		"y":round(elem.Location.Y)
+	}
+	data.append(dict)
+
+# 出力を OUT 変数に割り当てます。
+OUT = data
+```  
+Send data to Notion  
+```Python:SenddatatoNotion.py
+from System.Net import WebRequest
+from System.Text import ASCIIEncoding
+from System.IO import StreamReader
+from System.Net import ServicePointManager
+from System.Net import SecurityProtocolType
+from System.Net import WebException
+import time, json
+
+# Functions
+def http(method, url, data_string=None, header={}, retry=3):
+    ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12
+    request = WebRequest.Create(url)
+    request.UseDefaultCredentials = True
+    request.Method = method
+    request.ContentLength = 0
+    
+    for k,v in header.items():
+        request.Headers.Add(k,v)
+    
+    if data_string:
+        request.ContentType = "application/json"
+        encoding = ASCIIEncoding()
+        data = encoding.GetBytes(data_string)
+        request.ContentLength = data.Length
+        stream = request.GetRequestStream()
+        stream.Write(data, 0, data.Length)
+        stream.Close()
+
+    try:
+        response = request.GetResponse()
+        print (response.StatusDescription)
+        dataStream = response.GetResponseStream()
+        reader = StreamReader(dataStream)
+    
+        responseFromServer = reader.ReadToEnd()
+            
+        reader.Close()
+        dataStream.Close()
+        response.Close()
+        return responseFromServer
+
+    except WebException as e : 
+        if e.Response.StatusDescription == "Not Found" and retry>0:
+            time.sleep(10)
+            return http(method, url, data_string, header, retry-1)
+
+        print (e.Response.StatusDescription)
+        dataStream = e.Response.GetResponseStream()
+        reader = StreamReader(dataStream)
+    
+        responseFromServer = reader.ReadToEnd()
+        print (responseFromServer)
+    
+        reader.Close()
+        dataStream.Close()
+
+# このノードへの入力は、リスト形式で IN 変数に格納されます。
+dicts = IN[0]
+
+# この行の下にコードを配置します
+
+# URL
+url = "https://api.notion.com/v1/pages"
+# Token
+token = "Bearer 取得したトークン"
+# headers
+headers = {
+            'Authorization': token,
+            'Notion-Version': "2021-05-13",
+            }
+
+for dict in dicts:
+    values = {
+        "parent": {"database_id": "テーブルID"},
+        "properties": {
+            "id": {
+                "number":dict["id"]
+            },
+            "x": {
+                "number":dict["x"]
+            },
+            "y": {
+                "number":dict["y"]
+            },
+        }
+        }
+    # bodyを文字列化
+    data = json.dumps(values)
+    # POST
+    http("POST",url,data,headers)
+
+# 出力を OUT 変数に割り当てます。
+OUT = 0
+```  
+- 実行結果  
+  上記を実行すると，こんな感じでNotionのテーブルにレコードが挿入されます  
+![image](https://user-images.githubusercontent.com/6135252/127834096-86519377-f834-4d77-85f9-5f64c8aea901.png)
+- 適当に編集  
+  x/yはそれぞれプロジェクトの絶対座標[mm]なので，これを適当に書き換えてください。  
+  ただしidによってインスタンスとの紐づけを行っているので，idは書き換えないように注意してください。  
+### 3 Notionのテーブルで変更した情報をDynamo介してRevitに反映する  
+Notionのテーブルで書き換えたx/yの値をRevitプロジェクトに反映させます。  
+- Dynamo(Send2Notion.dyn)
+![GetFromNotion_2021-08-02_06-20-42](https://user-images.githubusercontent.com/6135252/127837458-f66ead3f-ed98-4250-8982-51ea714aacbc.png)
+
+
+
+## おわりに
+### ▽エクササイズ
+F1はインスタンスパラメータL/W/Hを持っており，直方体ジオメトリの3方に連動しています。  
+ElementID/x/yに加えてL/W/HもNotionのテーブルフィールドに追加し，Notion側から変更できるようにしてみましょう。  
+![image](https://user-images.githubusercontent.com/6135252/127825827-dd3217a8-68cd-4395-83f1-7cb4ddfa3952.png)
+
 ### ▽これ何に使えそう？
