@@ -14,7 +14,7 @@
 （jsonを使う制約で，厳密にはRevit2020.2↑/Dynamo2.3.0↑ですが環境がなくて動作確認できていません）
 ### ▽事前にみておくといいです
 - [Getting Started with NotionAPI](https://www.notion.so/Getting-Started-with-NotionAPI-8dbc03801bf54d23b4ffded7d7981a73)2章まで
-- [zenn-マッシュアッパーのためのwebAPI入門](https://aaa) 今回のために勉強かねてまとめました
+- [zenn-マッシュアッパーのためのwebAPI入門](https://aaa) 今回のために勉強かねてまとめました（まだ編集中，出来たらリンク先更新）
 
 ## ☺本題
 ### 1 NotionAPIでNotionにテーブルを作る
@@ -59,16 +59,17 @@ Postman（APIを簡単に叩くためのツール）を使って，APIによる�
 - Postmanに新規requestを作成。名前は"Create a table"とでも
 - 下記の設定でリクエストをたたく
   - リクエストライン/ヘッダ  
-|Tab|Name|Key|Value|  
-|:---|:---|:---|:---|  
-|General|メソッド||POST|  
-|General|URL||https://api.notion.com/v1/databases/|  
-|Authorization|Token|Bearer|Integrationのトークン|  
-|Headers|Header|Notion-Version|2021-05-13|  
-|Headers|Header|Content-Type|application/json|  
+
+  | Tab | Name | Key | Value |  
+  | :--- | :--- | :--- | :--- |  
+  | General | メソッド |  | POST |  
+  | General | URI |  | https://api.notion.com/v1/databases/ |  
+  | Authorization | Token | Bearer | Integrationのトークン |  
+  | Headers | Header | Notion-Version | 2021-05-13 |  
+  | Headers | Header | Content-Type | application/json |  
   - ボディ  
-```JSON:body.json
-{
+  ```JSON:body.json
+  {
     "parent": {
         "type": "page_id",
         "page_id": "ページIDをペースト"
@@ -96,8 +97,8 @@ Postman（APIを簡単に叩くためのツール）を使って，APIによる�
             "number": {}
         }
     }
-}
-```
+  }
+  ```
 ```
 ❕  
 ページIDは，ページのURLから確認できます。規則は下記の通りです。  
@@ -111,7 +112,8 @@ https://www.notion.so/[ページ名]-[ページID]
 ❕  
 テーブルIDも，テーブルを全画面表示した時のURLから確認できます。規則は下記の通りです。  
 https://www.notion.so/[テーブルID]?v=[何かのパラメータ]
-```
+```  
+
 ### 2 Revitの情報をDynamo介してNotionのテーブルに突っ込む  
 レポジトリのテストプロジェクト(taec_testpj.rvt)には，パラメトリックな直方体の一般ファミリ(F1.rfa)のインスタンスが6つ配置されています。  
 上記6つのF1のインスタンスのElementID/x座標/y座標を取得し，Notionのテーブルにレコードとして挿入します。  
@@ -265,17 +267,178 @@ OUT = 0
 - 適当に編集  
   x/yはそれぞれプロジェクトの絶対座標[mm]なので，これを適当に書き換えてください。  
   ただしidによってインスタンスとの紐づけを行っているので，idは書き換えないように注意してください。  
+  
 ### 3 Notionのテーブルで変更した情報をDynamo介してRevitに反映する  
 Notionのテーブルで書き換えたx/yの値をRevitプロジェクトに反映させます。  
-- Dynamo(Send2Notion.dyn)
-![GetFromNotion_2021-08-02_06-20-42](https://user-images.githubusercontent.com/6135252/127837458-f66ead3f-ed98-4250-8982-51ea714aacbc.png)
+- Dynamo(GetFromNotion.dyn)
+![GetFromNotion_2021-08-02_06-20-42](https://user-images.githubusercontent.com/6135252/127837458-f66ead3f-ed98-4250-8982-51ea714aacbc.png)  
+
+Get data from Notion  
+```Python:GetDataFromNotion.py
+from System.Net import WebRequest
+from System.Text import ASCIIEncoding
+from System.IO import StreamReader
+from System.Net import ServicePointManager
+from System.Net import SecurityProtocolType
+from System.Net import WebException
+import time, json
+
+# Functions
+def http(method, url, data_string=None, header={}, retry=3):
+    ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12
+    request = WebRequest.Create(url)
+    request.UseDefaultCredentials = True
+    request.Method = method
+    request.ContentLength = 0
+    
+    for k,v in header.items():
+        request.Headers.Add(k,v)
+    
+    if data_string:
+        request.ContentType = "application/json"
+        encoding = ASCIIEncoding()
+        data = encoding.GetBytes(data_string)
+        request.ContentLength = data.Length
+        stream = request.GetRequestStream()
+        stream.Write(data, 0, data.Length)
+        stream.Close()
+
+    try:
+        response = request.GetResponse()
+        print (response.StatusDescription)
+        dataStream = response.GetResponseStream()
+        reader = StreamReader(dataStream)
+    
+        responseFromServer = reader.ReadToEnd()
+            
+        reader.Close()
+        dataStream.Close()
+        response.Close()
+        return responseFromServer
+
+    except WebException as e : 
+        if e.Response.StatusDescription == "Not Found" and retry>0:
+            time.sleep(10)
+            return http(method, url, data_string, header, retry-1)
+
+        print (e.Response.StatusDescription)
+        dataStream = e.Response.GetResponseStream()
+        reader = StreamReader(dataStream)
+    
+        responseFromServer = reader.ReadToEnd()
+        print (responseFromServer)
+    
+        reader.Close()
+        dataStream.Close()
+
+# この行の下にコードを配置します
+# URL
+database_id = "テーブルID"
+url = "https://api.notion.com/v1/databases/{}/query/".format(database_id)
+# Token
+token = "Bearer 取得したトークン"
+# headers
+headers = {
+	'Authorization': token,
+        'Notion-Version': "2021-05-13"
+	}
+# body
+values = {}
+data = json.dumps(values)
+
+#run webAPI
+res = http("POST",url,data,headers)
+objects = json.loads(res)["results"]
+
+# 出力を OUT 変数に割り当てます。
+OUT = res
+```
+
+Extract data from json  
+```Python:ExtractDataFromJSON.py
+import time, json
+
+# このノードへの入力は、リスト形式で IN 変数に格納されます。
+res = IN[0]
+
+# この行の下にコードを配置します
+objects = json.loads(res)["results"]
+
+data = []
+for obj in objects:
+	props = obj["properties"]
+	record = {
+		"id":props["id"]["number"],
+		"x":props["x"]["number"],
+		"y":props["y"]["number"]
+	}
+	data.append(record)
+
+# 出力を OUT 変数に割り当てます。
+OUT = data
+```
+Update instances by data
+```Python:UpdateInstancesByData.py
+import clr
+clr.AddReference('RevitAPI')
+from Autodesk.Revit.DB import*
+
+clr.AddReference('RevitServices')
+from RevitServices.Persistence import DocumentManager
+from RevitServices.Transactions import TransactionManager
+uiapp = DocumentManager.Instance.CurrentUIApplication
+app = uiapp.Application
+
+#input assigned the IN variable
+data = IN[0]
+
+
+#default document set to DocumentManager.Instance.CurrentDBDocument
+doc = DocumentManager.Instance.CurrentDBDocument
+
+#core data processing
+def update_instance(record):
+	#パラメータセット
+	TransactionManager.Instance.EnsureInTransaction(doc)
+	
+	elem = doc.GetElement(ElementId(record["id"]))
+	dxyz = XYZ(
+		record["x"]/304.8-elem.Location.Point[0],
+		record["y"]/304.8-elem.Location.Point[1],
+		0
+	)
+	ElementTransformUtils.MoveElement(doc,elem.Id,dxyz)
+	
+	TransactionManager.Instance.ForceCloseTransaction()
+	
+	return elem
+	
+a = []
+for record in data:
+	b = update_instance(record)
+	a.append(b)
+
+#output assigned the OUT variable
+OUT = a
+```
+- 実行結果  
+  上記を実行すると，Notionのテーブルからデータを取得し，各インスタンスのx座標およびy座標を更新します。
+- JSONの解析  
+  NotionAPIで取得したJSONは[JSONViewer](http://jsonviewer.stack.hu/)などで確認すると，構造がいい感じに可視化されてコードが書きやすいです。  
+  ![image](https://user-images.githubusercontent.com/6135252/127849101-f2a149db-ef80-4919-a861-f16f696a257c.png)
 
 
 
 ## おわりに
+### ▽まとめ
+Revitの外部にあるNotionテーブルとRevitのプロジェクトをDynamoでバッチ同期できるようにしたことで，Revitのデータベースが拡張されました。  
+
+### ▽これ何に使えそう？
+- 正直あまり思いついてませんが，何かできそうな気はします
+- 非RevitユーザーにRevitの特定の内部データを編集させたいケース？
+- Revit内に埋め込みたくないファミリのメタデータをNotion側で管理したいケース？
+
 ### ▽エクササイズ
 F1はインスタンスパラメータL/W/Hを持っており，直方体ジオメトリの3方に連動しています。  
 ElementID/x/yに加えてL/W/HもNotionのテーブルフィールドに追加し，Notion側から変更できるようにしてみましょう。  
 ![image](https://user-images.githubusercontent.com/6135252/127825827-dd3217a8-68cd-4395-83f1-7cb4ddfa3952.png)
-
-### ▽これ何に使えそう？
