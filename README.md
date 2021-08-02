@@ -115,7 +115,7 @@ https://www.notion.so/[テーブルID]?v=[何かのパラメータ]
 ```  
 
 ### 2 Revitの情報をDynamo介してNotionのテーブルに突っ込む  
-レポジトリのテストプロジェクト(taec_testpj.rvt)には，パラメトリックな直方体の一般ファミリ(F1.rfa)のインスタンスが6つ配置されています。  
+リポジトリのテストプロジェクト(taec_testpj.rvt)には，パラメトリックな直方体の一般ファミリ(F1.rfa)のインスタンスが6つ配置されています。  
 上記6つのF1のインスタンスのElementID/x座標/y座標を取得し，Notionのテーブルにレコードとして挿入します。  
 ![image](https://user-images.githubusercontent.com/6135252/127825246-6f28cfdc-6906-4bb9-8e9c-394bac73c2ff.png)
 - Dynamo(Send2Notion.dyn)
