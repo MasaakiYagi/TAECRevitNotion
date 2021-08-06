@@ -14,7 +14,7 @@
 （jsonを使う制約で，厳密にはRevit2020.2↑/Dynamo2.3.0↑ですが環境がなくて動作確認できていません）
 ### ▽事前にみておくといいです
 - [Getting Started with NotionAPI](https://www.notion.so/Getting-Started-with-NotionAPI-8dbc03801bf54d23b4ffded7d7981a73)2章まで
-- [zenn-マッシュアッパーのためのwebAPI入門](https://aaa) 今回のために勉強かねてまとめました（まだ編集中，出来たらリンク先更新）
+- [zenn-マッシュアッパーのためのwebAPI入門](https://zenn.dev/yagithub/articles/01e189517797d8) 今回のために勉強かねてまとめました
 
 ## ☺本題
 ### 1 NotionAPIでNotionにテーブルを作る
